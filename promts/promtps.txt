@@ -1,0 +1,122 @@
+Prompt 1
+I want to setup the project. create the seperate folder for front end and backend in current repo
+This is the project details 
+
+Project: Inventory Demand (Mini Version)
+- Project Overview
+	Admin panel with user listing, product listing, inventory details, Sales details.
+	Low stock alert suggestion
+ 
+- Architecture
+	Frontend: React Admin Dashboard
+	Backend: Node.js + Express
+	Database: PostgreSQL
+        Style : Tailwind css
+ 
+- Admin Panel
+	Add products & sales data
+	View predicted demand
+	Stock alert notifications
+ 
+- Core Tables
+	Users, products, sales, inventory
+
+------------------------------------------------
+
+Prompt 2
+create the login page in react, user dummy data for login now 
+
+by default user should land on login page
+login credentials 
+username : admin
+password : admin123
+------------------------------------------------
+Prommpt 3 
+Now create the login API and implement the login API. also implement the route authentication
+Also i want to 
+Role-Based Access Control (RBAC): Restrict module access based on assigned roles. Assign different Role to user. Once user login they will see only assigned role modules.
+------------------------------------------------
+prompt 4 
+I want to implement the this 
+Import: Allow Admin to bulk-import inventory products using a CSV file.
+------------------------------------------------
+prompt 5
+I want to implement this 
+Manage user profile by email cannot be changed, Uploading image(only .png/.jpg allowed), hobby checkbox.
+So creare setting page where user can update load image, update the info
+Create the relevant API to update the info.
+------------------------------------------------
+prompt 6
+I am getting the issue on going the setting page, update the routing for settings in app js
+------------------------------------------------
+prompt 7
+I want to implement this 
+Allow the Export for "Products", "Inventory" and "Sales" , Should be exported with pdf and csv format.
+------------------------------------------------
+prompt 8
+For all the listing ( Products / Inventory / Sales / Users ) pages make sure we have the server side paginations implemented.
+Upeate the API for pagination for server side
+------------------------------------------------
+prompt 9
+I want to display a common loader on every action performed. Create a good looking ui loader and implemented it.
+------------------------------------------------
+prompt 10
+I want to implement the slider more responsive. Add button to toggel the slider. 
+In less mode show the icons and full view show the all details 
+------------------------------------------------
+prompt 11
+In front end i want to keep the API path in single env file. update all places where local API path used directly. creatre seperate variable like local AP path and live API path
+------------------------------------------------
+prompt 12
+I want to add a section in front end side where i asign the role to my existing user and assign the module like inventroy, product, sales, 
+so that user can we the module according the assigned roles. 
+And super admin have the right to assign the permission
+------------------------------------------------
+prompt 13
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

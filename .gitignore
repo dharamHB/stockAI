@@ -1,0 +1,82 @@
+# ===========================================
+# Dependencies
+# ===========================================
+node_modules/
+*/node_modules/
+
+# ===========================================
+# Environment Variables
+# ===========================================
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+
+# ===========================================
+# Build Outputs
+# ===========================================
+# Frontend (Vite/React)
+frontend/dist/
+frontend/build/
+
+# Backend
+backend/dist/
+backend/build/
+
+# ===========================================
+# Logs
+# ===========================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ===========================================
+# OS Generated Files
+# ===========================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.swp
+*.swo
+
+# ===========================================
+# IDE / Editor
+# ===========================================
+.idea/
+.vscode/
+*.sublime-workspace
+*.sublime-project
+*.code-workspace
+
+# ===========================================
+# Testing
+# ===========================================
+coverage/
+.nyc_output/
+
+# ===========================================
+# Uploads & User Generated Content
+# ===========================================
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# ===========================================
+# Misc
+# ===========================================
+.cache/
+*.tgz
+.pnp
+.pnp.js
+
+# Lock files (optional - uncomment if you want to ignore)
+# package-lock.json
+# yarn.lock

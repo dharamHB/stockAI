@@ -1,0 +1,4 @@
+name,sku,category,price,description,status,quantity,low_stock_threshold
+Imported Widget A,WIDGET-A,Widgets,19.99,A great widget,active,100,20
+Imported Widget B,WIDGET-B,Widgets,29.99,A better widget,active,50,10
+Special Gadget,GADGET-S,Gadgets,49.99,Limited edition,active,5,2

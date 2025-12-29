@@ -1,0 +1,61 @@
+UI login 
+email : dharmendra.shivhare@hiddenbrains.in
+pasword : hbdev@123
+
+sudo -u postgres psql
+password : hbdev@123
+
+for quit - \q
+
+user : postgres
+password : postgres123
+
+
+SQL COMMANDS
+CREATE TABLE person (id INT,name VARCHAR(100) ,city VARCHAR(100)); 
+INSERT INTO person (id,name,city) (101,'raj','delhi');
+SELECT * FROM person;
+UPDATE person SET city='surat' WHERE id=101;
+DELETE FROM person where id=103;
+
+
+bank_db
+CREATE TABLE employees (
+   emp_id SERIAL PRIMARY KEY,
+   first_name VARCHAR(100) NOT NULL,
+   last_name VARCHAR(100) NOT NULL,
+   email VARCHAR(200) NOT NULL UNIQUE,
+   dept VARCHAR(50) DEFAULT 'IT',
+   salary DECIMAL(10,2) DEFAULT 30000.00,
+   hire_date DATE NOT NULL DEFAULT CURRENT_DATE 
+);
+
+ALTER TABLE ordres RENAME TO orders;
+
+For auto increment set the current value
+SELECT setval('employees_emp_id_seq',1);
+
+One to many reletion 
+
+CREATE TABLE customers (
+   cus_id SERIAL PRIMARY KEY,
+   first_name VARCHAR(100) NOT NULL,
+   email VARCHAR(100) NOT NULL
+);
+
+CREATE TABLE orders (
+   order_id SERIAL PRIMARY KEY,
+   order_date DATE NOT NULL,
+   price NUMERIC NOT NULL,
+   cus_id INT NOT NULL,
+   FOREIGN KEY (cus_id) REFERENCES 
+   customers (cus_id)
+);
+
+
+
+
+
+
+
+
