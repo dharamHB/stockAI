@@ -1,20 +1,45 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../config/db");
+const auth = require("../middleware/auth");
 
-// Get all products with pagination
+// Get all products with pagination and date filtering
 router.get("/", async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
   const offset = (page - 1) * limit;
+  const { startDate, endDate } = req.query;
 
   try {
-    const totalResult = await pool.query("SELECT COUNT(*) FROM products");
+    let countQuery = "SELECT COUNT(*) FROM products";
+    let selectQuery = "SELECT * FROM products";
+    let whereClause = "";
+    let queryParams = [];
+
+    // Add date filtering if provided
+    if (startDate && endDate) {
+      whereClause = " WHERE created_at >= $1 AND created_at <= $2";
+      queryParams = [startDate, endDate];
+    } else if (startDate) {
+      whereClause = " WHERE created_at >= $1";
+      queryParams = [startDate];
+    } else if (endDate) {
+      whereClause = " WHERE created_at <= $1";
+      queryParams = [endDate];
+    }
+
+    const totalResult = await pool.query(countQuery + whereClause, queryParams);
     const totalCount = parseInt(totalResult.rows[0].count);
 
+    // Add pagination parameters
+    const paginationParams = [...queryParams, limit, offset];
     const result = await pool.query(
-      "SELECT * FROM products ORDER BY created_at DESC LIMIT $1 OFFSET $2",
-      [limit, offset]
+      selectQuery +
+        whereClause +
+        ` ORDER BY created_at DESC LIMIT $${queryParams.length + 1} OFFSET $${
+          queryParams.length + 2
+        }`,
+      paginationParams
     );
 
     res.json({
@@ -29,12 +54,16 @@ router.get("/", async (req, res) => {
 });
 
 // Create product
-router.post("/", async (req, res) => {
-  const { name, sku, category, price, description, status } = req.body;
+router.post("/", auth, async (req, res) => {
+  if (req.user.role !== "admin" && req.user.role !== "super_admin") {
+    return res.status(403).json({ error: "Access denied" });
+  }
+  const { name, sku, category, price, description, status, image_url } =
+    req.body;
   try {
     const result = await pool.query(
-      "INSERT INTO products (name, sku, category, price, description, status) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
-      [name, sku, category, price, description, status]
+      "INSERT INTO products (name, sku, category, price, description, status, image_url) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *",
+      [name, sku, category, price, description, status, image_url]
     );
     // Also create an inventory entry for the new product
     await pool.query(
@@ -48,13 +77,17 @@ router.post("/", async (req, res) => {
 });
 
 // Update product
-router.put("/:id", async (req, res) => {
+router.put("/:id", auth, async (req, res) => {
+  if (req.user.role !== "admin" && req.user.role !== "super_admin") {
+    return res.status(403).json({ error: "Access denied" });
+  }
   const { id } = req.params;
-  const { name, sku, category, price, description, status } = req.body;
+  const { name, sku, category, price, description, status, image_url } =
+    req.body;
   try {
     const result = await pool.query(
-      "UPDATE products SET name = $1, sku = $2, category = $3, price = $4, description = $5, status = $6 WHERE id = $7 RETURNING *",
-      [name, sku, category, price, description, status, id]
+      "UPDATE products SET name = $1, sku = $2, category = $3, price = $4, description = $5, status = $6, image_url = $7 WHERE id = $8 RETURNING *",
+      [name, sku, category, price, description, status, image_url, id]
     );
     res.json(result.rows[0]);
   } catch (err) {
@@ -62,8 +95,45 @@ router.put("/:id", async (req, res) => {
   }
 });
 
+// Get product stats
+router.get("/stats", async (req, res) => {
+  try {
+    // Low stock count (quantity <= low_stock_threshold)
+    const lowStockResult = await pool.query(
+      "SELECT COUNT(*) FROM inventory WHERE quantity > 0 AND quantity <= low_stock_threshold"
+    );
+
+    // Out of stock count (quantity = 0)
+    const outOfStockResult = await pool.query(
+      "SELECT COUNT(*) FROM inventory WHERE quantity = 0"
+    );
+
+    // Today's sales count
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const todaysSalesResult = await pool.query(
+      "SELECT COUNT(*) FROM sales WHERE sale_date >= $1 AND sale_date <= $2",
+      [today.toISOString(), endOfDay.toISOString()]
+    );
+
+    res.json({
+      lowStockCount: parseInt(lowStockResult.rows[0].count),
+      outOfStockCount: parseInt(outOfStockResult.rows[0].count),
+      todaysSalesCount: parseInt(todaysSalesResult.rows[0].count),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Delete product
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", auth, async (req, res) => {
+  if (req.user.role !== "admin" && req.user.role !== "super_admin") {
+    return res.status(403).json({ error: "Access denied" });
+  }
   const { id } = req.params;
   try {
     await pool.query("DELETE FROM products WHERE id = $1", [id]);
@@ -81,7 +151,10 @@ const { Readable } = require("stream");
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Import products from CSV
-router.post("/import", upload.single("file"), async (req, res) => {
+router.post("/import", [auth, upload.single("file")], async (req, res) => {
+  if (req.user.role !== "admin" && req.user.role !== "super_admin") {
+    return res.status(403).json({ error: "Access denied" });
+  }
   if (!req.file) {
     return res.status(400).json({ error: "No file uploaded" });
   }

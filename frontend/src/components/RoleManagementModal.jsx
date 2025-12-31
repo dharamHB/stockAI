@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import toast from "react-hot-toast";
 import Modal from "./Modal";
 import {
   getRolePermissions,
@@ -36,7 +37,7 @@ const RoleManagementModal = ({ isOpen, onClose }) => {
     const roleSlug = newRoleName.toLowerCase().trim().replace(/\s+/g, "_");
 
     if (permissions[roleSlug]) {
-      alert("Role already exists!");
+      toast.error("Role already exists!");
       return;
     }
 
@@ -49,21 +50,23 @@ const RoleManagementModal = ({ isOpen, onClose }) => {
   };
 
   const handleDeleteRole = (role) => {
-    if (role === "admin") {
-      alert("Cannot delete admin role!");
+    if (role === "admin" || role === "super_admin") {
+      toast.error(`Cannot delete ${role.replace("_", " ")} role!`);
       return;
     }
-    if (confirm(`Are you sure you want to delete role '${role}'?`)) {
+    if (window.confirm(`Are you sure you want to delete role '${role}'?`)) {
       setPermissions((prev) => {
         const next = { ...prev };
         delete next[role];
         return next;
       });
+      toast.success(`Role '${role}' deleted.`);
     }
   };
 
   const handleSave = () => {
     saveRolePermissions(permissions);
+    toast.success("Role permissions updated successfully!");
     onClose();
   };
 
@@ -100,12 +103,15 @@ const RoleManagementModal = ({ isOpen, onClose }) => {
                         checked={(permissions[role] || []).includes(module)}
                         onChange={() => handleTogglePermission(role, module)}
                         className="w-4 h-4 text-primary-600 bg-gray-100 border-gray-300 rounded focus:ring-primary-500"
-                        disabled={role === "admin" && module === "Users"} // Prevent locking out admin from Users
+                        disabled={
+                          (role === "admin" && module === "Users") ||
+                          role === "super_admin"
+                        } // Prevent locking out admin from Users or modifying super_admin
                       />
                     </td>
                   ))}
                   <td className="px-4 py-3">
-                    {role !== "admin" && (
+                    {role !== "admin" && role !== "super_admin" && (
                       <button
                         onClick={() => handleDeleteRole(role)}
                         className="text-red-600 hover:text-red-900"

@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import toast from "react-hot-toast";
 import { useLoading } from "../context/LoadingContext";
 import API_URL from "../config";
+import { useTheme } from "../context/ThemeContext";
+import { Sun, Moon, TrendingUp, ShieldCheck } from "lucide-react";
 
 const Login = () => {
   const { showLoader, hideLoader } = useLoading();
   const navigate = useNavigate();
+  const { theme, toggleTheme } = useTheme();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -36,7 +40,10 @@ const Login = () => {
         localStorage.setItem("token", data.token);
         localStorage.setItem("userRole", data.user.role);
         localStorage.setItem("userName", data.user.name);
-        navigate("/");
+        toast.success(`Welcome back, ${data.user.name}! 👋`, {
+          icon: "🎉",
+        });
+        setTimeout(() => navigate("/"), 500);
       } else {
         setError(data.error || "Login failed");
       }
@@ -48,78 +55,91 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-gray-800 to-black p-4">
-      <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-2xl shadow-2xl p-8 max-w-md w-full relative overflow-hidden">
-        {/* Decorative elements */}
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500"></div>
-        <div className="absolute -top-10 -right-10 w-24 h-24 bg-blue-500/20 rounded-full blur-2xl"></div>
-        <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-purple-500/20 rounded-full blur-2xl"></div>
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-black transition-colors duration-500 p-4 relative overflow-hidden">
+      {/* Decorative Orbs */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary-500/10 dark:bg-primary-500/5 rounded-full blur-[120px] pointer-events-none"></div>
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-primary-600/10 dark:bg-primary-600/5 rounded-full blur-[120px] pointer-events-none"></div>
 
-        <div className="relative z-10">
-          <h2 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-400 mb-2 text-center">
-            Welcome Back
-          </h2>
-          <p className="text-gray-400 text-center mb-8">
-            Enter your credentials to access the admin panel.
-          </p>
+      {/* Theme Toggle Button */}
+      <button
+        onClick={toggleTheme}
+        className="absolute top-8 right-8 p-3 rounded-2xl bg-white dark:bg-neutral-900 border border-gray-100 dark:border-neutral-800 shadow-xl hover:scale-110 active:scale-95 transition-all text-gray-500 hover:text-gray-900 dark:hover:text-gray-100"
+      >
+        {theme === "dark" ? (
+          <Sun className="w-5 h-5 text-amber-500" />
+        ) : (
+          <Moon className="w-5 h-5 text-primary-600" />
+        )}
+      </button>
+
+      <div className="max-w-md w-full relative group">
+        <div className="absolute -inset-1 bg-gradient-to-r from-primary-600 to-primary-400 rounded-[2rem] blur opacity-25 group-hover:opacity-40 transition duration-1000 group-hover:duration-200"></div>
+
+        <div className="relative bg-white dark:bg-[#0a0a0a] border border-gray-100 dark:border-neutral-800 rounded-[2rem] shadow-2xl p-10 backdrop-blur-xl">
+          <div className="flex flex-col items-center mb-10 text-center">
+            <div className="w-16 h-16 bg-primary-50 dark:bg-primary-900/10 rounded-2xl flex items-center justify-center mb-6 border border-primary-100 dark:border-primary-900/20 shadow-inner group-hover:rotate-6 transition-transform duration-500">
+              <TrendingUp className="w-8 h-8 text-primary-600 dark:text-primary-500" />
+            </div>
+            <h1 className="text-4xl font-black text-gray-900 dark:text-gray-100 italic tracking-tighter mb-2">
+              STOCK AI
+            </h1>
+            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-gray-400 dark:text-gray-500 italic">
+              Quantum Asset Management Core
+            </p>
+          </div>
 
           <form onSubmit={handleLogin} className="space-y-6">
-            <div>
-              <label
-                className="block text-sm font-medium text-gray-300 mb-1"
-                htmlFor="username"
-              >
-                Username
+            <div className="space-y-2">
+              <label className="block text-[10px] font-black italic uppercase tracking-widest text-gray-500 dark:text-gray-400 px-1">
+                Security Identifier
               </label>
-              <input
-                type="text"
-                id="username"
-                className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 placeholder-gray-500"
-                placeholder="Enter username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-              />
+              <div className="relative group/field">
+                <input
+                  type="text"
+                  className="w-full px-5 py-4 bg-gray-50 dark:bg-neutral-900 border border-transparent dark:border-neutral-800 rounded-2xl text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all font-bold placeholder-gray-400 dark:placeholder-neutral-700"
+                  placeholder="USERNAME_KEY"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                />
+              </div>
             </div>
 
-            <div>
-              <label
-                className="block text-sm font-medium text-gray-300 mb-1"
-                htmlFor="password"
-              >
-                Password
+            <div className="space-y-2">
+              <label className="block text-[10px] font-black italic uppercase tracking-widest text-gray-500 dark:text-gray-400 px-1">
+                Access Cipher
               </label>
               <input
                 type="password"
-                id="password"
-                className="w-full px-4 py-3 bg-gray-800/50 border border-gray-700 text-white rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition duration-200 placeholder-gray-500"
-                placeholder="Enter password"
+                className="w-full px-5 py-4 bg-gray-50 dark:bg-neutral-900 border border-transparent dark:border-neutral-800 rounded-2xl text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all font-bold placeholder-gray-400 dark:placeholder-neutral-700"
+                placeholder="********"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
             </div>
 
             {error && (
-              <div className="text-red-400 text-sm text-center bg-red-500/10 py-2 rounded-lg border border-red-500/20">
+              <div className="flex items-center gap-3 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-2xl text-[10px] font-black uppercase tracking-widest italic animate-in fade-in slide-in-from-top-1">
+                <span className="text-sm">⚠️</span>
                 {error}
               </div>
             )}
 
             <button
               type="submit"
-              className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold rounded-lg shadow-lg transform transition hover:scale-[1.02] active:scale-[0.98] duration-200"
+              className="w-full py-4 bg-primary-600 text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs hover:bg-primary-700 transition-all shadow-xl shadow-primary-500/20 active:scale-[0.98] flex items-center justify-center gap-3 group/btn"
             >
-              Sign In
+              Initialize Session
+              <ShieldCheck className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" />
             </button>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-gray-500 text-sm">
-              Forgot your credentials?{" "}
-              <span className="text-blue-400 hover:text-blue-300 cursor-pointer">
-                Contact Support
-              </span>
-            </p>
-          </div>
+          <p className="mt-10 text-center text-gray-500 dark:text-gray-600 text-[10px] font-black uppercase tracking-widest italic leading-relaxed">
+            Authorized Personnel Only
+            <br />
+            <span className="opacity-50">
+              E2E Cryptographic Protection Enabled
+            </span>
+          </p>
         </div>
       </div>
     </div>

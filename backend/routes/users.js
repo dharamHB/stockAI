@@ -2,19 +2,46 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../config/db");
 
-// Get all users with pagination
+// Get all users with pagination and date filtering
 router.get("/", async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
   const offset = (page - 1) * limit;
+  const { startDate, endDate } = req.query;
 
   try {
-    const totalCountResult = await pool.query("SELECT COUNT(*) FROM users");
+    let countQuery = "SELECT COUNT(*) FROM users";
+    let selectQuery = "SELECT id, name, email, role, created_at FROM users";
+    let whereClause = "";
+    let queryParams = [];
+
+    // Add date filtering if provided
+    if (startDate && endDate) {
+      whereClause = " WHERE created_at >= $1 AND created_at <= $2";
+      queryParams = [startDate, endDate];
+    } else if (startDate) {
+      whereClause = " WHERE created_at >= $1";
+      queryParams = [startDate];
+    } else if (endDate) {
+      whereClause = " WHERE created_at <= $1";
+      queryParams = [endDate];
+    }
+
+    const totalCountResult = await pool.query(
+      countQuery + whereClause,
+      queryParams
+    );
     const totalCount = parseInt(totalCountResult.rows[0].count);
 
+    // Add pagination parameters
+    const paginationParams = [...queryParams, limit, offset];
     const result = await pool.query(
-      "SELECT id, name, email, role, created_at FROM users ORDER BY created_at DESC LIMIT $1 OFFSET $2",
-      [limit, offset]
+      selectQuery +
+        whereClause +
+        ` ORDER BY created_at DESC LIMIT $${queryParams.length + 1} OFFSET $${
+          queryParams.length + 2
+        }`,
+      paginationParams
     );
 
     res.json({
@@ -129,11 +156,67 @@ router.put(
   }
 );
 
+// Change Password (Protected)
+router.put("/change-password", auth, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  try {
+    // Get user from DB
+    const userResult = await pool.query("SELECT * FROM users WHERE id = $1", [
+      req.user.id,
+    ]);
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const user = userResult.rows[0];
+
+    // Check current password
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ error: "Invalid current password" });
+    }
+
+    // Hash new password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+    // Update password
+    await pool.query("UPDATE users SET password = $1 WHERE id = $2", [
+      hashedPassword,
+      req.user.id,
+    ]);
+
+    res.json({ message: "Password updated successfully" });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Server Error");
+  }
+});
+
 // Update user (Admin Update other user)
 router.put("/:id", async (req, res) => {
   const { id } = req.params;
   const { name, email, role, password } = req.body;
   try {
+    // Check if user exists and their current role
+    const userResult = await pool.query(
+      "SELECT role FROM users WHERE id = $1",
+      [id]
+    );
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const currentRole = userResult.rows[0].role;
+
+    // Prevent changing role of super_admin
+    if (currentRole === "super_admin" && role !== "super_admin") {
+      return res
+        .status(403)
+        .json({ error: "Super Admin role cannot be changed" });
+    }
+
     let query, params;
     if (password && password.trim() !== "") {
       const salt = await bcrypt.genSalt(10);
@@ -161,6 +244,22 @@ router.put("/:id", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   const { id } = req.params;
   try {
+    // Check if the user is a super_admin
+    const userResult = await pool.query(
+      "SELECT role FROM users WHERE id = $1",
+      [id]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    if (userResult.rows[0].role === "super_admin") {
+      return res
+        .status(403)
+        .json({ error: "Super Admin user cannot be deleted" });
+    }
+
     await pool.query("DELETE FROM users WHERE id = $1", [id]);
     res.json({ message: "User deleted successfully" });
   } catch (err) {

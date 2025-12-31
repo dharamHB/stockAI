@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import toast from "react-hot-toast";
 import { Camera, User, Mail, Save, X } from "lucide-react";
 import { useLoading } from "../context/LoadingContext";
 import API_URL from "../config";
@@ -13,6 +14,11 @@ const Settings = () => {
   });
   const [previewImage, setPreviewImage] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
   const fileInputRef = useRef(null);
 
   const availableHobbies = [
@@ -61,7 +67,7 @@ const Settings = () => {
     const file = e.target.files[0];
     if (file) {
       if (!file.type.match("image/png") && !file.type.match("image/jpeg")) {
-        alert("Only PNG and JPG images are allowed.");
+        toast.error("Only PNG and JPG images are allowed.");
         return;
       }
       setFormData({ ...formData, profile_image: file });
@@ -98,53 +104,108 @@ const Settings = () => {
       });
 
       if (response.ok) {
-        alert("Profile updated successfully!");
+        toast.success("Profile updated successfully! 🎉");
         const updatedUser = await response.json();
         // Update local storage name if it changed
         localStorage.setItem("userName", updatedUser.name);
         // Refresh to ensure everything syncs simple way
-        window.location.reload();
+        setTimeout(() => window.location.reload(), 1000);
       } else {
-        alert("Failed to update profile");
+        toast.error("Failed to update profile");
       }
     } catch (error) {
       console.error("Error updating profile:", error);
+      toast.error("Error updating profile");
     } finally {
       hideLoader();
     }
   };
 
-  if (loading) return <div className="p-8">Loading...</div>;
+  const handlePasswordSubmit = async (e) => {
+    e.preventDefault();
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error("New passwords do not match!");
+      return;
+    }
+
+    showLoader();
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`${API_URL}/api/users/change-password`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "x-auth-token": token,
+        },
+        body: JSON.stringify({
+          currentPassword: passwordData.currentPassword,
+          newPassword: passwordData.newPassword,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success("Password updated successfully! ✅");
+        setPasswordData({
+          currentPassword: "",
+          newPassword: "",
+          confirmPassword: "",
+        });
+      } else {
+        toast.error(data.error || "Failed to update password");
+      }
+    } catch (error) {
+      console.error("Error updating password:", error);
+      toast.error("An error occurred while updating password");
+    } finally {
+      hideLoader();
+    }
+  };
+
+  if (loading)
+    return (
+      <div className="p-8 text-gray-900 dark:text-gray-100 font-black uppercase italic tracking-widest animate-pulse">
+        Synchronizing Profile...
+      </div>
+    );
 
   return (
-    <div className="max-w-2xl mx-auto">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">User Settings</h1>
+    <div className="max-w-2xl mx-auto space-y-8 pb-12">
+      <div>
+        <h1 className="text-3xl font-black text-gray-900 dark:text-gray-100 italic">
+          Profile Configuration
+        </h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1 font-medium">
+          Control your digital identity and authentication parameters
+        </p>
+      </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-white dark:bg-[#181818] rounded-2xl shadow-sm border border-gray-200 dark:border-neutral-800 overflow-hidden">
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Profile Image Section */}
-          <div className="flex flex-col items-center justify-center mb-6">
+          <div className="flex flex-col items-center justify-center mb-8 pt-4">
             <div
               className="relative group cursor-pointer"
               onClick={() => fileInputRef.current.click()}
             >
-              <div className="w-32 h-32 rounded-full border-4 border-gray-100 overflow-hidden bg-gray-50 flex items-center justify-center">
+              <div className="w-32 h-32 rounded-full border-4 border-gray-100 dark:border-neutral-800 overflow-hidden bg-gray-50 dark:bg-neutral-900 flex items-center justify-center transition-all group-hover:border-primary-500/50">
                 {previewImage ? (
                   <img
                     src={previewImage}
                     alt="Profile"
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover transition-transform group-hover:scale-110"
                   />
                 ) : (
-                  <User className="w-12 h-12 text-gray-300" />
+                  <User className="w-12 h-12 text-gray-300 dark:text-neutral-700" />
                 )}
               </div>
-              <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                <Camera className="w-8 h-8 text-white" />
+              <div className="absolute inset-0 bg-black/40 dark:bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300">
+                <Camera className="w-8 h-8 text-white scale-75 group-hover:scale-100 transition-transform" />
               </div>
             </div>
-            <p className="mt-2 text-sm text-gray-500">
-              Click to upload (PNG/JPG only)
+            <p className="mt-3 text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-500">
+              Update Avatar
             </p>
             <input
               type="file"
@@ -156,69 +217,159 @@ const Settings = () => {
           </div>
 
           {/* Form Fields */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Full Name
-            </label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) =>
-                setFormData({ ...formData, name: e.target.value })
-              }
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:outline-none"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email Address
-            </label>
-            <div className="relative">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-[10px] font-black text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-widest italic px-1">
+                Full Display Designation
+              </label>
               <input
-                type="email"
-                value={formData.email}
-                disabled
-                className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                type="text"
+                value={formData.name}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-neutral-900 border border-transparent dark:border-neutral-800 rounded-xl text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:outline-none transition-all font-bold"
+                required
               />
-              <Mail className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
             </div>
-            <p className="text-xs text-gray-500 mt-1">
-              Email address cannot be changed
-            </p>
+
+            <div>
+              <label className="block text-[10px] font-black text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-widest italic px-1">
+                Registry Identifier (Email)
+              </label>
+              <div className="relative">
+                <input
+                  type="email"
+                  value={formData.email}
+                  disabled
+                  className="w-full px-4 py-3 pl-12 bg-gray-100 dark:bg-neutral-900/50 border border-transparent dark:border-neutral-800 rounded-xl text-gray-400 dark:text-gray-600 cursor-not-allowed italic font-medium"
+                />
+                <Mail className="w-4 h-4 text-gray-300 dark:text-neutral-700 absolute left-4 top-1/2 -translate-y-1/2" />
+              </div>
+              <p className="text-[10px] text-gray-400 dark:text-gray-600 mt-2 italic px-1 font-medium">
+                Verified identifier — Immutable system record
+              </p>
+            </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-3">
-              Hobbies & Interests
+            <label className="block text-[10px] font-black text-gray-500 dark:text-gray-400 mb-4 uppercase tracking-widest italic px-1">
+              Competencies & Core Interests
             </label>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {availableHobbies.map((hobby) => (
                 <label
                   key={hobby}
-                  className="flex items-center gap-2 cursor-pointer p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                  className={`flex items-center gap-3 cursor-pointer p-4 border rounded-xl transition-all duration-300 ${
+                    formData.hobbies.includes(hobby)
+                      ? "bg-primary-500/10 border-primary-500/30 shadow-md ring-1 ring-primary-500/20"
+                      : "bg-gray-50 dark:bg-neutral-900 border-transparent dark:border-neutral-800 hover:border-gray-200 dark:hover:border-neutral-700"
+                  }`}
                 >
                   <input
                     type="checkbox"
                     checked={formData.hobbies.includes(hobby)}
                     onChange={() => handleHobbyChange(hobby)}
-                    className="w-4 h-4 text-primary-600 rounded focus:ring-primary-500"
+                    className="w-4 h-4 text-primary-600 rounded-md bg-white dark:bg-neutral-800 border-gray-300 dark:border-neutral-700 focus:ring-primary-500/50"
                   />
-                  <span className="text-sm text-gray-700">{hobby}</span>
+                  <span
+                    className={`text-[10px] font-black uppercase tracking-widest ${
+                      formData.hobbies.includes(hobby)
+                        ? "text-primary-600 dark:text-primary-400"
+                        : "text-gray-500 dark:text-gray-400"
+                    }`}
+                  >
+                    {hobby}
+                  </span>
                 </label>
               ))}
             </div>
           </div>
 
           {/* Actions */}
-          <div className="pt-4 border-t border-gray-200 flex justify-end">
+          <div className="pt-8 border-t border-gray-100 dark:border-neutral-800 flex justify-end">
             <button
               type="submit"
-              className="px-6 py-2.5 bg-primary-600 text-white font-medium rounded-lg hover:bg-primary-700 transition-all flex items-center gap-2"
+              className="px-10 py-3.5 bg-primary-600 text-white font-black uppercase tracking-widest text-[11px] rounded-xl hover:bg-primary-700 transition-all flex items-center gap-3 shadow-xl shadow-primary-500/30 active:scale-95"
             >
               <Save className="w-4 h-4" />
-              Save Changes
+              Sync Remote State
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div className="bg-white dark:bg-[#181818] rounded-2xl shadow-sm border border-gray-200 dark:border-neutral-800 overflow-hidden">
+        <div className="p-6 border-b border-gray-200 dark:border-neutral-800">
+          <h2 className="text-lg font-black text-gray-900 dark:text-gray-100 italic">
+            Security Protocol
+          </h2>
+          <p className="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em] mt-1 font-black">
+            Update Authorization Credentials
+          </p>
+        </div>
+        <form onSubmit={handlePasswordSubmit} className="p-6 space-y-5">
+          <div>
+            <label className="block text-[10px] font-black text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-widest italic px-1">
+              Current Access Cipher
+            </label>
+            <input
+              type="password"
+              required
+              value={passwordData.currentPassword}
+              onChange={(e) =>
+                setPasswordData({
+                  ...passwordData,
+                  currentPassword: e.target.value,
+                })
+              }
+              className="w-full px-4 py-3 bg-gray-50 dark:bg-neutral-900 border border-transparent dark:border-neutral-800 rounded-xl text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:outline-none transition-all font-mono"
+            />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-[10px] font-black text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-widest italic px-1">
+                New Access Cipher
+              </label>
+              <input
+                type="password"
+                required
+                value={passwordData.newPassword}
+                onChange={(e) =>
+                  setPasswordData({
+                    ...passwordData,
+                    newPassword: e.target.value,
+                  })
+                }
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-neutral-900 border border-transparent dark:border-neutral-800 rounded-xl text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:outline-none transition-all font-mono"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-black text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-widest italic px-1">
+                Re-verify Cipher
+              </label>
+              <input
+                type="password"
+                required
+                value={passwordData.confirmPassword}
+                onChange={(e) =>
+                  setPasswordData({
+                    ...passwordData,
+                    confirmPassword: e.target.value,
+                  })
+                }
+                className="w-full px-4 py-3 bg-gray-50 dark:bg-neutral-900 border border-transparent dark:border-neutral-800 rounded-xl text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-primary-500 focus:outline-none transition-all font-mono"
+              />
+            </div>
+          </div>
+          {/* Actions */}
+          <div className="pt-8 border-t border-gray-100 dark:border-neutral-800 flex justify-end">
+            <button
+              type="submit"
+              className="px-10 py-3.5 bg-gray-900 dark:bg-primary-600 text-white font-black uppercase tracking-widest text-[11px] rounded-xl hover:bg-gray-800 dark:hover:bg-primary-700 transition-all flex items-center gap-3 shadow-xl shadow-black/10 dark:shadow-primary-500/30 active:scale-95"
+            >
+              <Save className="w-4 h-4" />
+              Rotate Credentials
             </button>
           </div>
         </form>

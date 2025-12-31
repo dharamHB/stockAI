@@ -13,7 +13,14 @@ import Inventory from "./pages/Inventory";
 import Sales from "./pages/Sales";
 import Login from "./pages/Login";
 import Settings from "./pages/Settings";
+import Cart from "./pages/Cart";
+import MyOrders from "./pages/MyOrders";
+import PaymentSuccess from "./pages/PaymentSuccess";
 import { LoadingProvider } from "./context/LoadingContext";
+import { CartProvider } from "./context/CartContext";
+import { ThemeProvider, useTheme } from "./context/ThemeContext";
+import { Toaster } from "react-hot-toast";
+import { hasPermission } from "./utils/permissions";
 
 const ProtectedRoute = ({ children }) => {
   const isAuthenticated = localStorage.getItem("isAuthenticated") === "true";
@@ -23,9 +30,9 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
-const RoleRoute = ({ children, roles }) => {
+const RoleRoute = ({ children, moduleName }) => {
   const userRole = localStorage.getItem("userRole");
-  if (!roles.includes(userRole)) {
+  if (!hasPermission(userRole, moduleName)) {
     return <Navigate to="/" replace />;
   }
   return children;
@@ -33,57 +40,88 @@ const RoleRoute = ({ children, roles }) => {
 
 function App() {
   return (
-    <LoadingProvider>
-      <Router>
-        <Routes>
-          <Route path="/login" element={<Login />} />
+    <ThemeProvider>
+      <LoadingProvider>
+        <CartProvider>
+          <Router>
+            <Routes>
+              <Route path="/login" element={<Login />} />
 
-          <Route
-            path="/"
-            element={
-              <ProtectedRoute>
-                <Layout />
-              </ProtectedRoute>
-            }
-          >
-            <Route index element={<Dashboard />} />
-            <Route
-              path="users"
-              element={
-                <RoleRoute roles={["admin"]}>
-                  <Users />
-                </RoleRoute>
-              }
-            />
-            <Route
-              path="products"
-              element={
-                <RoleRoute roles={["admin", "manager"]}>
-                  <Products />
-                </RoleRoute>
-              }
-            />
-            <Route
-              path="inventory"
-              element={
-                <RoleRoute roles={["admin", "manager"]}>
-                  <Inventory />
-                </RoleRoute>
-              }
-            />
-            <Route
-              path="sales"
-              element={
-                <RoleRoute roles={["admin", "manager"]}>
-                  <Sales />
-                </RoleRoute>
-              }
-            />
-            <Route path="settings" element={<Settings />} />
-          </Route>
-        </Routes>
-      </Router>
-    </LoadingProvider>
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute>
+                    <Layout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<Dashboard />} />
+                <Route
+                  path="users"
+                  element={
+                    <RoleRoute moduleName="Users">
+                      <Users />
+                    </RoleRoute>
+                  }
+                />
+                <Route
+                  path="products"
+                  element={
+                    <RoleRoute moduleName="Products">
+                      <Products />
+                    </RoleRoute>
+                  }
+                />
+                <Route
+                  path="inventory"
+                  element={
+                    <RoleRoute moduleName="Inventory">
+                      <Inventory />
+                    </RoleRoute>
+                  }
+                />
+                <Route
+                  path="sales"
+                  element={
+                    <RoleRoute moduleName="Sales">
+                      <Sales />
+                    </RoleRoute>
+                  }
+                />
+                <Route path="cart" element={<Cart />} />
+                <Route path="my-orders" element={<MyOrders />} />
+                <Route path="payment-success" element={<PaymentSuccess />} />
+                <Route path="settings" element={<Settings />} />
+              </Route>
+            </Routes>
+          </Router>
+          <Toaster
+            position="top-right"
+            toastOptions={{
+              duration: 3000,
+              style: {
+                background: "#333",
+                color: "#fff",
+              },
+              success: {
+                duration: 3000,
+                iconTheme: {
+                  primary: "#10b981",
+                  secondary: "#fff",
+                },
+              },
+              error: {
+                duration: 4000,
+                iconTheme: {
+                  primary: "#ef4444",
+                  secondary: "#fff",
+                },
+              },
+            }}
+          />
+        </CartProvider>
+      </LoadingProvider>
+    </ThemeProvider>
   );
 }
 

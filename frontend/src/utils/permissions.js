@@ -1,7 +1,26 @@
 export const DEFAULT_PERMISSIONS = {
-  admin: ["Dashboard", "Users", "Products", "Inventory", "Sales", "Settings"],
-  manager: ["Dashboard", "Products", "Inventory", "Sales"],
-  user: ["Dashboard", "Settings"],
+  super_admin: [
+    "Dashboard",
+    "Users",
+    "Products",
+    "Inventory",
+    "Sales",
+    "Cart",
+    "My Orders",
+    "Settings",
+  ],
+  admin: [
+    "Dashboard",
+    "Users",
+    "Products",
+    "Inventory",
+    "Sales",
+    "Cart",
+    "My Orders",
+    "Settings",
+  ],
+  manager: ["Dashboard", "Products", "Inventory", "Sales", "Cart", "My Orders"],
+  user: ["Dashboard", "Products", "Cart", "My Orders", "Settings"],
 };
 
 export const AVAILABLE_MODULES = [
@@ -10,15 +29,26 @@ export const AVAILABLE_MODULES = [
   "Products",
   "Inventory",
   "Sales",
+  "Cart",
+  "My Orders",
   "Settings",
 ];
 
 export const getRolePermissions = () => {
   const stored = localStorage.getItem("role_permissions");
+  let permissions = DEFAULT_PERMISSIONS;
+
   if (stored) {
-    return JSON.parse(stored);
+    const parsed = JSON.parse(stored);
+    // Merge stored with defaults, ensuring super_admin and admin always have full access
+    permissions = {
+      ...parsed,
+      super_admin: DEFAULT_PERMISSIONS.super_admin,
+      admin: DEFAULT_PERMISSIONS.admin,
+    };
   }
-  return DEFAULT_PERMISSIONS;
+
+  return permissions;
 };
 
 export const saveRolePermissions = (permissions) => {

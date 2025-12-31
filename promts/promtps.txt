@@ -73,10 +73,22 @@ so that user can we the module according the assigned roles.
 And super admin have the right to assign the permission
 ------------------------------------------------
 prompt 13
-
-
-
-
+I want to implement the add inventory modal pop. Update the front end with add inventory modal pop up with API implementation.
+------------------------------------------------
+prompt 14
+I want to implement this things to current my system
+Create / Update / Delete:
+	Users
+	Products
+	Inventory
+	Sales
+	Profile updates
+	Password change
+	Login / Logout
+	Cart checkout (order placed)
+Check and implement things to current front end and backend side
+------------------------------------------------
+prompt 15
 
 
 

@@ -31,6 +31,24 @@ router.get("/", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+// Get stock for a specific product
+router.get("/product/:productId", async (req, res) => {
+  const { productId } = req.params;
+  try {
+    const result = await pool.query(
+      "SELECT quantity FROM inventory WHERE product_id = $1",
+      [productId]
+    );
+    if (result.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ error: "Inventory not found for this product" });
+    }
+    res.json({ quantity: result.rows[0].quantity });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // Update inventory quantity
 router.put("/:id", async (req, res) => {
