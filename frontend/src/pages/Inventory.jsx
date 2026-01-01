@@ -37,7 +37,12 @@ const Inventory = () => {
     showLoader();
     try {
       const response = await fetch(
-        `${API_URL}/api/inventory?page=${page}&limit=${pagination.limit}`
+        `${API_URL}/api/inventory?page=${page}&limit=${pagination.limit}`,
+        {
+          headers: {
+            "x-auth-token": localStorage.getItem("token"),
+          },
+        }
       );
       const data = await response.json();
       setInventory(data.items);
@@ -54,11 +59,37 @@ const Inventory = () => {
     }
   };
 
-  const handleExport = (format) => {
+  const handleExport = async (format) => {
     showLoader();
-    window.open(`${API_URL}/api/inventory/export/${format}`, "_blank");
-    toast.success(`Exporting ${format.toUpperCase()}...`);
-    setTimeout(hideLoader, 1000);
+    try {
+      const response = await fetch(
+        `${API_URL}/api/inventory/export/${format}`,
+        {
+          headers: {
+            "x-auth-token": localStorage.getItem("token"),
+          },
+        }
+      );
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `inventory_${new Date().getTime()}.${format}`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        toast.success(`Exporting ${format.toUpperCase()}...`);
+      } else {
+        toast.error(`Failed to export ${format.toUpperCase()}`);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Export error");
+    } finally {
+      hideLoader();
+    }
   };
 
   const handleUpdate = async (e) => {
@@ -67,7 +98,10 @@ const Inventory = () => {
     try {
       const response = await fetch(`${API_URL}/api/inventory/${editingId}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-auth-token": localStorage.getItem("token"),
+        },
         body: JSON.stringify(formData),
       });
 

@@ -5,6 +5,7 @@ import { useLoading } from "../context/LoadingContext";
 import API_URL from "../config";
 import { useTheme } from "../context/ThemeContext";
 import { Sun, Moon, TrendingUp, ShieldCheck } from "lucide-react";
+import { fetchRolePermissions, setRolePermissions } from "../utils/permissions";
 
 const Login = () => {
   const { showLoader, hideLoader } = useLoading();
@@ -40,6 +41,10 @@ const Login = () => {
         localStorage.setItem("token", data.token);
         localStorage.setItem("userRole", data.user.role);
         localStorage.setItem("userName", data.user.name);
+        if (data.user.permissions) {
+          setRolePermissions(data.user.role, data.user.permissions);
+        }
+        await fetchRolePermissions(); // Still fetch all for good measure
         toast.success(`Welcome back, ${data.user.name}! 👋`, {
           icon: "🎉",
         });

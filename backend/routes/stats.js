@@ -1,8 +1,10 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../config/db");
+const auth = require("../middleware/auth");
+const checkPermission = require("../middleware/permission");
 
-router.get("/", async (req, res) => {
+router.get("/", auth, checkPermission("Dashboard"), async (req, res) => {
   try {
     // Parallel queries for dashboard stats
     const [revenueRes, ordersRes, usersRes, lowStockRes, salesTrendRes] =

@@ -35,9 +35,25 @@ router.post("/login", async (req, res) => {
       },
     };
 
+    // Fetch role permissions for this specific user's role
+    const modulesRes = await pool.query(
+      `SELECT m.name FROM modules m 
+       JOIN role_permissions rp ON m.id = rp.module_id 
+       JOIN roles r ON rp.role_id = r.id 
+       WHERE r.slug = $1`,
+      [user.role]
+    );
+    let userPermissions = modulesRes.rows.map((m) => m.name);
+
+    // Handle super_admin override
+    if (user.role === "super_admin") {
+      const allModules = await pool.query("SELECT name FROM modules");
+      userPermissions = allModules.rows.map((m) => m.name);
+    }
+
     jwt.sign(
       payload,
-      process.env.JWT_SECRET || "secret", // Use distinct env var in production
+      process.env.JWT_SECRET || "secret",
       { expiresIn: "1h" },
       (err, token) => {
         if (err) throw err;
@@ -48,6 +64,7 @@ router.post("/login", async (req, res) => {
             name: user.name,
             email: user.email,
             role: user.role,
+            permissions: userPermissions,
           },
         });
       }

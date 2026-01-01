@@ -6,7 +6,7 @@ import RoleManagementModal from "../components/RoleManagementModal";
 import ConfirmDialog from "../components/ConfirmDialog";
 import { useLoading } from "../context/LoadingContext";
 import API_URL from "../config";
-import { getAvailableRoles } from "../utils/permissions";
+import { getAvailableRoles, fetchRolePermissions } from "../utils/permissions";
 import { Shield } from "lucide-react";
 
 const Users = () => {
@@ -40,7 +40,11 @@ const Users = () => {
 
   useEffect(() => {
     fetchUsers(pagination.currentPage);
-    updateRoles();
+    const initRoles = async () => {
+      await fetchRolePermissions();
+      updateRoles();
+    };
+    initRoles();
 
     const handleUpdate = () => updateRoles();
     window.addEventListener("rolePermissionsUpdated", handleUpdate);
@@ -72,7 +76,11 @@ const Users = () => {
         url += `&startDate=${start.toISOString()}&endDate=${end.toISOString()}`;
       }
 
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: {
+          "x-auth-token": localStorage.getItem("token"),
+        },
+      });
       const data = await response.json();
       setUsers(data.users);
       setPagination((prev) => ({
@@ -100,7 +108,10 @@ const Users = () => {
 
       const response = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "x-auth-token": localStorage.getItem("token"),
+        },
         body: JSON.stringify(formData),
       });
 
@@ -135,6 +146,9 @@ const Users = () => {
       try {
         await fetch(`${API_URL}/api/users/${deleteUserId}`, {
           method: "DELETE",
+          headers: {
+            "x-auth-token": localStorage.getItem("token"),
+          },
         });
         toast.success("User deleted successfully!");
         fetchUsers(pagination.currentPage);

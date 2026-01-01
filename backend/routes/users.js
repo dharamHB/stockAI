@@ -1,9 +1,12 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../config/db");
+const auth = require("../middleware/auth");
+const checkPermission = require("../middleware/permission");
+const bcrypt = require("bcryptjs");
 
 // Get all users with pagination and date filtering
-router.get("/", async (req, res) => {
+router.get("/", auth, checkPermission("Users"), async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
   const offset = (page - 1) * limit;
@@ -55,12 +58,22 @@ router.get("/", async (req, res) => {
   }
 });
 
-const bcrypt = require("bcryptjs");
-
 // Create user
-router.post("/", async (req, res) => {
+router.post("/", auth, checkPermission("Users"), async (req, res) => {
   const { name, email, password, role } = req.body;
   try {
+    // Check if assigning super_admin
+    if (role === "super_admin") {
+      const superAdminCount = await pool.query(
+        "SELECT COUNT(*) FROM users WHERE role = 'super_admin'"
+      );
+      if (parseInt(superAdminCount.rows[0].count) > 0) {
+        return res
+          .status(400)
+          .json({ error: "Only one Super Admin is allowed in the system." });
+      }
+    }
+
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
@@ -74,7 +87,6 @@ router.post("/", async (req, res) => {
   }
 });
 
-const auth = require("../middleware/auth");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
@@ -195,7 +207,7 @@ router.put("/change-password", auth, async (req, res) => {
 });
 
 // Update user (Admin Update other user)
-router.put("/:id", async (req, res) => {
+router.put("/:id", auth, checkPermission("Users"), async (req, res) => {
   const { id } = req.params;
   const { name, email, role, password } = req.body;
   try {
@@ -209,6 +221,18 @@ router.put("/:id", async (req, res) => {
     }
 
     const currentRole = userResult.rows[0].role;
+
+    // Prevent promoting to super_admin if one already exists
+    if (role === "super_admin" && currentRole !== "super_admin") {
+      const superAdminCount = await pool.query(
+        "SELECT COUNT(*) FROM users WHERE role = 'super_admin'"
+      );
+      if (parseInt(superAdminCount.rows[0].count) > 0) {
+        return res
+          .status(400)
+          .json({ error: "Only one Super Admin is allowed in the system." });
+      }
+    }
 
     // Prevent changing role of super_admin
     if (currentRole === "super_admin" && role !== "super_admin") {
@@ -241,7 +265,7 @@ router.put("/:id", async (req, res) => {
 });
 
 // Delete user
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", auth, checkPermission("Users"), async (req, res) => {
   const { id } = req.params;
   try {
     // Check if the user is a super_admin

@@ -9,6 +9,7 @@ const productsRoutes = require("./routes/products");
 const inventoryRoutes = require("./routes/inventory");
 const salesRoutes = require("./routes/sales");
 const statsRoutes = require("./routes/stats");
+const rolesRoutes = require("./routes/roles");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -25,6 +26,7 @@ app.use("/api/products", productsRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/sales", salesRoutes);
 app.use("/api/stats", statsRoutes);
+app.use("/api/roles", rolesRoutes);
 
 app.get("/", (req, res) => {
   res.send("Inventory Demand API is running");

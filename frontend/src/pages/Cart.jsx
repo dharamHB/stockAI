@@ -38,24 +38,9 @@ const Cart = () => {
 
     try {
       // Validate stock availability before checkout
-      const stockCheckPromises = cartItems.map(async (item) => {
-        const response = await fetch(`${API_URL}/api/inventory`);
-        const data = await response.json();
-        const inventoryItem = data.items.find(
-          (inv) => inv.product_id === item.id
-        );
-
-        if (!inventoryItem || inventoryItem.quantity < item.quantity) {
-          throw new Error(
-            `Insufficient stock for ${item.name}. Available: ${
-              inventoryItem?.quantity || 0
-            }, Required: ${item.quantity}`
-          );
-        }
-        return true;
-      });
-
-      await Promise.all(stockCheckPromises);
+      // We'll rely on the backend create-checkout-session to validate stock to avoid permission issues
+      // with /api/inventory endpoint for non-admin users.
+      // The backend endpoint checks stock and will return an error if insufficient.
 
       // Create Stripe Checkout Session
       const token = localStorage.getItem("token");

@@ -15,12 +15,14 @@ import Login from "./pages/Login";
 import Settings from "./pages/Settings";
 import Cart from "./pages/Cart";
 import MyOrders from "./pages/MyOrders";
+import AllOrders from "./pages/AllOrders";
+import OrderDetails from "./pages/OrderDetails";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import { LoadingProvider } from "./context/LoadingContext";
 import { CartProvider } from "./context/CartContext";
 import { ThemeProvider, useTheme } from "./context/ThemeContext";
 import { Toaster } from "react-hot-toast";
-import { hasPermission } from "./utils/permissions";
+import { hasPermission, fetchRolePermissions } from "./utils/permissions";
 
 const ProtectedRoute = ({ children }) => {
   const isAuthenticated = localStorage.getItem("isAuthenticated") === "true";
@@ -39,6 +41,13 @@ const RoleRoute = ({ children, moduleName }) => {
 };
 
 function App() {
+  React.useEffect(() => {
+    const isAuthenticated = localStorage.getItem("isAuthenticated") === "true";
+    if (isAuthenticated) {
+      fetchRolePermissions();
+    }
+  }, []);
+
   return (
     <ThemeProvider>
       <LoadingProvider>
@@ -89,7 +98,17 @@ function App() {
                   }
                 />
                 <Route path="cart" element={<Cart />} />
+                <Route
+                  path="all-orders"
+                  element={
+                    <RoleRoute moduleName="All Orders">
+                      <AllOrders />
+                    </RoleRoute>
+                  }
+                />
+                <Route path="sales/orders/:id" element={<OrderDetails />} />
                 <Route path="my-orders" element={<MyOrders />} />
+                <Route path="my-orders/:id" element={<OrderDetails />} />
                 <Route path="payment-success" element={<PaymentSuccess />} />
                 <Route path="settings" element={<Settings />} />
               </Route>

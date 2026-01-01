@@ -24,7 +24,6 @@ const Products = () => {
   const { showLoader, hideLoader } = useLoading();
   const { addToCart, getCartCount } = useCart();
   const [products, setProducts] = useState([]);
-  const [inventory, setInventory] = useState([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [deleteProductId, setDeleteProductId] = useState(null);
@@ -64,12 +63,15 @@ const Products = () => {
   useEffect(() => {
     fetchProducts(pagination.currentPage);
     fetchStats();
-    fetchInventory();
   }, [pagination.currentPage, dateFilter, customStartDate, customEndDate]);
 
   const fetchStats = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/products/stats`);
+      const response = await fetch(`${API_URL}/api/products/stats`, {
+        headers: {
+          "x-auth-token": localStorage.getItem("token"),
+        },
+      });
       if (response.ok) {
         const data = await response.json();
         setStats(data);
@@ -79,54 +81,20 @@ const Products = () => {
     }
   };
 
-  const fetchInventory = async () => {
-    try {
-      const response = await fetch(`${API_URL}/api/inventory`);
-      if (response.ok) {
-        const data = await response.json();
-        setInventory(data.items || []);
-      }
-    } catch (error) {
-      console.error("Error fetching inventory:", error);
-    }
-  };
-
   const [processingId, setProcessingId] = useState(null);
 
-  const handleAddToCart = async (product) => {
-    if (processingId) return;
-    setProcessingId(product.id);
-    try {
-      // Fetch latest stock from backend
-      const response = await fetch(
-        `${API_URL}/api/inventory/product/${product.id}`
-      );
-      if (!response.ok) {
-        toast.error("Error checking product availability");
-        return;
-      }
-      const data = await response.json();
-      const latestStock = data.quantity;
+  const handleAddToCart = (product) => {
+    const availableStock = product.stock_quantity || 0;
 
-      if (latestStock < 1) {
-        toast.error(`${product.name} is out of stock!`, {
-          icon: "❌",
-          id: `out-of-stock-${product.id}`,
-        });
-        return;
-      }
-
-      // Pass the latest stock to context check
-      addToCart(product, 1, latestStock);
-
-      // Refresh inventory level in the background
-      fetchInventory();
-    } catch (error) {
-      console.error("Error adding to cart:", error);
-      toast.error("Failed to check stock level");
-    } finally {
-      setProcessingId(null);
+    if (availableStock < 1) {
+      toast.error(`${product.name} is out of stock!`, {
+        icon: "❌",
+        id: `out-of-stock-${product.id}`,
+      });
+      return;
     }
+
+    addToCart(product, 1, availableStock);
   };
 
   const fetchProducts = async (page = 1) => {
@@ -149,7 +117,11 @@ const Products = () => {
         url += `&startDate=${start.toISOString()}&endDate=${end.toISOString()}`;
       }
 
-      const response = await fetch(url);
+      const response = await fetch(url, {
+        headers: {
+          "x-auth-token": localStorage.getItem("token"),
+        },
+      });
       const data = await response.json();
       setProducts(data.products);
       setPagination((prev) => ({
@@ -165,14 +137,34 @@ const Products = () => {
     }
   };
 
-  const handleExport = (format) => {
+  const handleExport = async (format) => {
     showLoader();
-    const url = `${API_URL}/api/products/export/${format}`;
-    window.open(url, "_blank");
-    toast.success(`Exporting ${format.toUpperCase()}...`);
-    // Since window.open triggers a download, we can't easily know when it's done,
-    // so we'll just hide the loader after a short delay for UX.
-    setTimeout(hideLoader, 1000);
+    try {
+      const response = await fetch(`${API_URL}/api/products/export/${format}`, {
+        headers: {
+          "x-auth-token": localStorage.getItem("token"),
+        },
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `products_${new Date().getTime()}.${format}`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        toast.success(`Exporting ${format.toUpperCase()}...`);
+      } else {
+        toast.error(`Failed to export ${format.toUpperCase()}`);
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Export error");
+    } finally {
+      hideLoader();
+    }
   };
 
   const handleImportClick = () => {
@@ -588,12 +580,8 @@ const Products = () => {
           {viewMode === "grid" ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {filteredProducts.map((product) => {
-                const invItem = inventory.find(
-                  (item) => item.product_id === product.id
-                );
-                const availableStock = invItem?.quantity || 0;
-
-                return (
+                const availableStock = product.stock_quantity || 0;
+                    return (
                   <div
                     key={product.id}
                     className="group bg-white dark:bg-[#1f1f1f] rounded-2xl border border-gray-100 dark:border-neutral-800 shadow-sm hover:shadow-xl dark:hover:shadow-primary-900/10 transition-all duration-500 overflow-hidden flex flex-col"
@@ -704,16 +692,11 @@ const Products = () => {
           ) : (
             <div className="space-y-4">
               {filteredProducts.map((product) => {
-                const invItem = inventory.find(
-                  (item) => item.product_id === product.id
-                );
-                const availableStock = invItem?.quantity || 0;
-
+                const availableStock = product.stock_quantity || 0;
                 return (
                   <div
                     key={product.id}
-                    className="group bg-white dark:bg-[#1f1f1f] rounded-2xl border border-gray-100 dark:border-neutral-800 shadow-sm hover:shadow-md transition-all duration-300 p-5 flex items-center gap-6"
-                  >
+                    className="group bg-white dark:bg-[#1f1f1f] rounded-2xl border border-gray-100 dark:border-neutral-800 shadow-sm hover:shadow-md transition-all duration-300 p-5 flex items-center gap-6" >
                     <div className="w-20 h-20 rounded-xl overflow-hidden bg-gray-50 dark:bg-neutral-800 flex-shrink-0 border border-gray-100 dark:border-neutral-800">
                       <img
                         src={

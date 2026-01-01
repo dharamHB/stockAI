@@ -60,6 +60,12 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
       roles: ["admin", "manager"],
     },
     {
+      name: "All Orders",
+      path: "/all-orders",
+      icon: ClipboardList,
+      roles: ["admin", "manager"],
+    },
+    {
       name: "Cart",
       path: "/cart",
       icon: ShoppingBag,

@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../config/db");
 const auth = require("../middleware/auth");
+const checkPermission = require("../middleware/permission");
 
 // Get all products with pagination and date filtering
 router.get("/", async (req, res) => {
@@ -12,23 +13,30 @@ router.get("/", async (req, res) => {
 
   try {
     let countQuery = "SELECT COUNT(*) FROM products";
-    let selectQuery = "SELECT * FROM products";
+    let selectQuery = `
+      SELECT p.*, COALESCE(i.quantity, 0) as stock_quantity 
+      FROM products p
+      LEFT JOIN inventory i ON p.id = i.product_id
+    `;
     let whereClause = "";
     let queryParams = [];
 
     // Add date filtering if provided
     if (startDate && endDate) {
-      whereClause = " WHERE created_at >= $1 AND created_at <= $2";
+      whereClause = " WHERE p.created_at >= $1 AND p.created_at <= $2";
       queryParams = [startDate, endDate];
     } else if (startDate) {
-      whereClause = " WHERE created_at >= $1";
+      whereClause = " WHERE p.created_at >= $1";
       queryParams = [startDate];
     } else if (endDate) {
-      whereClause = " WHERE created_at <= $1";
+      whereClause = " WHERE p.created_at <= $1";
       queryParams = [endDate];
     }
 
-    const totalResult = await pool.query(countQuery + whereClause, queryParams);
+    const totalResult = await pool.query(
+      countQuery + (whereClause ? whereClause.replace("p.", "") : ""),
+      queryParams
+    );
     const totalCount = parseInt(totalResult.rows[0].count);
 
     // Add pagination parameters
@@ -36,7 +44,7 @@ router.get("/", async (req, res) => {
     const result = await pool.query(
       selectQuery +
         whereClause +
-        ` ORDER BY created_at DESC LIMIT $${queryParams.length + 1} OFFSET $${
+        ` ORDER BY p.created_at DESC LIMIT $${queryParams.length + 1} OFFSET $${
           queryParams.length + 2
         }`,
       paginationParams
@@ -54,10 +62,7 @@ router.get("/", async (req, res) => {
 });
 
 // Create product
-router.post("/", auth, async (req, res) => {
-  if (req.user.role !== "admin" && req.user.role !== "super_admin") {
-    return res.status(403).json({ error: "Access denied" });
-  }
+router.post("/", auth, checkPermission("Products"), async (req, res) => {
   const { name, sku, category, price, description, status, image_url } =
     req.body;
   try {
@@ -77,10 +82,7 @@ router.post("/", auth, async (req, res) => {
 });
 
 // Update product
-router.put("/:id", auth, async (req, res) => {
-  if (req.user.role !== "admin" && req.user.role !== "super_admin") {
-    return res.status(403).json({ error: "Access denied" });
-  }
+router.put("/:id", auth, checkPermission("Products"), async (req, res) => {
   const { id } = req.params;
   const { name, sku, category, price, description, status, image_url } =
     req.body;
@@ -130,10 +132,7 @@ router.get("/stats", async (req, res) => {
 });
 
 // Delete product
-router.delete("/:id", auth, async (req, res) => {
-  if (req.user.role !== "admin" && req.user.role !== "super_admin") {
-    return res.status(403).json({ error: "Access denied" });
-  }
+router.delete("/:id", auth, checkPermission("Products"), async (req, res) => {
   const { id } = req.params;
   try {
     await pool.query("DELETE FROM products WHERE id = $1", [id]);
@@ -151,96 +150,99 @@ const { Readable } = require("stream");
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Import products from CSV
-router.post("/import", [auth, upload.single("file")], async (req, res) => {
-  if (req.user.role !== "admin" && req.user.role !== "super_admin") {
-    return res.status(403).json({ error: "Access denied" });
-  }
-  if (!req.file) {
-    return res.status(400).json({ error: "No file uploaded" });
-  }
+router.post(
+  "/import",
+  [auth, checkPermission("Products"), upload.single("file")],
+  async (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
 
-  const results = [];
-  const stream = Readable.from(req.file.buffer.toString());
+    const results = [];
+    const stream = Readable.from(req.file.buffer.toString());
 
-  stream
-    .pipe(csv())
-    .on("data", (data) => results.push(data))
-    .on("end", async () => {
-      const client = await pool.connect();
-      try {
-        await client.query("BEGIN");
+    stream
+      .pipe(csv())
+      .on("data", (data) => results.push(data))
+      .on("end", async () => {
+        const client = await pool.connect();
+        try {
+          await client.query("BEGIN");
 
-        let importedCount = 0;
-        const errors = [];
+          let importedCount = 0;
+          const errors = [];
 
-        for (const row of results) {
-          // Basic validation
-          if (!row.name || !row.price) {
-            errors.push(
-              `Skipping row with missing name or price: ${JSON.stringify(row)}`
-            );
-            continue;
-          }
-
-          try {
-            // Check if SKU exists if provided
-            if (row.sku) {
-              const existingProduct = await client.query(
-                "SELECT id FROM products WHERE sku = $1",
-                [row.sku]
+          for (const row of results) {
+            // Basic validation
+            if (!row.name || !row.price) {
+              errors.push(
+                `Skipping row with missing name or price: ${JSON.stringify(
+                  row
+                )}`
               );
-              if (existingProduct.rows.length > 0) {
-                // Option: Update or Skip. For now, we'll skip duplicates to avoid overwriting.
-                errors.push(`Skipping existing SKU: ${row.sku}`);
-                continue;
-              }
+              continue;
             }
 
-            const insertProductText = `
+            try {
+              // Check if SKU exists if provided
+              if (row.sku) {
+                const existingProduct = await client.query(
+                  "SELECT id FROM products WHERE sku = $1",
+                  [row.sku]
+                );
+                if (existingProduct.rows.length > 0) {
+                  // Option: Update or Skip. For now, we'll skip duplicates to avoid overwriting.
+                  errors.push(`Skipping existing SKU: ${row.sku}`);
+                  continue;
+                }
+              }
+
+              const insertProductText = `
                     INSERT INTO products (name, sku, category, price, description, status)
                     VALUES ($1, $2, $3, $4, $5, $6)
                     RETURNING id
                 `;
-            const productValues = [
-              row.name,
-              row.sku || null,
-              row.category || null,
-              parseFloat(row.price),
-              row.description || null,
-              row.status || "active",
-            ];
+              const productValues = [
+                row.name,
+                row.sku || null,
+                row.category || null,
+                parseFloat(row.price),
+                row.description || null,
+                row.status || "active",
+              ];
 
-            const res = await client.query(insertProductText, productValues);
-            const productId = res.rows[0].id;
+              const res = await client.query(insertProductText, productValues);
+              const productId = res.rows[0].id;
 
-            // Inventory
-            const quantity = parseInt(row.quantity) || 0;
-            const threshold = parseInt(row.low_stock_threshold) || 10;
+              // Inventory
+              const quantity = parseInt(row.quantity) || 0;
+              const threshold = parseInt(row.low_stock_threshold) || 10;
 
-            await client.query(
-              "INSERT INTO inventory (product_id, quantity, low_stock_threshold) VALUES ($1, $2, $3)",
-              [productId, quantity, threshold]
-            );
+              await client.query(
+                "INSERT INTO inventory (product_id, quantity, low_stock_threshold) VALUES ($1, $2, $3)",
+                [productId, quantity, threshold]
+              );
 
-            importedCount++;
-          } catch (err) {
-            errors.push(`Error importing ${row.name}: ${err.message}`);
+              importedCount++;
+            } catch (err) {
+              errors.push(`Error importing ${row.name}: ${err.message}`);
+            }
           }
-        }
 
-        await client.query("COMMIT");
-        res.json({
-          message: `Successfully imported ${importedCount} products`,
-          errors: errors.length > 0 ? errors : undefined,
-        });
-      } catch (err) {
-        await client.query("ROLLBACK");
-        res.status(500).json({ error: "Transaction failed: " + err.message });
-      } finally {
-        client.release();
-      }
-    });
-});
+          await client.query("COMMIT");
+          res.json({
+            message: `Successfully imported ${importedCount} products`,
+            errors: errors.length > 0 ? errors : undefined,
+          });
+        } catch (err) {
+          await client.query("ROLLBACK");
+          res.status(500).json({ error: "Transaction failed: " + err.message });
+        } finally {
+          client.release();
+        }
+      });
+  }
+);
 
 const { Parser } = require("json2csv");
 const PDFDocument = require("pdfkit");

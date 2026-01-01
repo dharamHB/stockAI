@@ -64,7 +64,11 @@ const Dashboard = () => {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/stats`);
+      const response = await fetch(`${API_URL}/api/stats`, {
+        headers: {
+          "x-auth-token": localStorage.getItem("token"),
+        },
+      });
       if (response.ok) {
         const data = await response.json();
         setStats(data);
@@ -76,7 +80,11 @@ const Dashboard = () => {
 
   const fetchLowStock = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/inventory`);
+      const response = await fetch(`${API_URL}/api/inventory`, {
+        headers: {
+          "x-auth-token": localStorage.getItem("token"),
+        },
+      });
       if (response.ok) {
         const data = await response.json();
         setAlerts(
