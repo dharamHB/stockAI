@@ -5,45 +5,74 @@ const auth = require("../middleware/auth");
 const checkPermission = require("../middleware/permission");
 
 // Get all products with pagination and date filtering
+// Get all products with pagination and date filtering
+// Public access: View all
+// Tenant access: View own
+// Super Admin access: View all
 router.get("/", async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
   const offset = (page - 1) * limit;
   const { startDate, endDate } = req.query;
 
+  // Check for token manually to determine context (Public vs Admin/Tenant)
+  const token = req.header("x-auth-token");
+  let tenantId = null;
+  let isSuperAdmin = false;
+
+  if (token) {
+    try {
+      const jwt = require("jsonwebtoken");
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || "secret");
+      if (decoded.user.role === "tenant") {
+        tenantId = decoded.user.id;
+      } else if (decoded.user.role === "super_admin") {
+        isSuperAdmin = true;
+      }
+    } catch (e) {
+      // Token invalid or expired, treat as public
+    }
+  }
+
   try {
-    let countQuery = "SELECT COUNT(*) FROM products";
+    let countQuery = "SELECT COUNT(*) FROM products p";
     let selectQuery = `
-      SELECT p.*, COALESCE(i.quantity, 0) as stock_quantity 
+      SELECT p.*, COALESCE(i.quantity, 0) as stock_quantity, u.name as vendor_name 
       FROM products p
       LEFT JOIN inventory i ON p.id = i.product_id
+      LEFT JOIN users u ON p.tenant_id = u.id
     `;
-    let whereClause = "";
+    let whereClause = [];
     let queryParams = [];
 
-    // Add date filtering if provided
-    if (startDate && endDate) {
-      whereClause = " WHERE p.created_at >= $1 AND p.created_at <= $2";
-      queryParams = [startDate, endDate];
-    } else if (startDate) {
-      whereClause = " WHERE p.created_at >= $1";
-      queryParams = [startDate];
-    } else if (endDate) {
-      whereClause = " WHERE p.created_at <= $1";
-      queryParams = [endDate];
+    // Tenant Filter
+    if (tenantId) {
+      whereClause.push(`p.tenant_id = $${queryParams.length + 1}`);
+      queryParams.push(tenantId);
     }
 
-    const totalResult = await pool.query(
-      countQuery + (whereClause ? whereClause.replace("p.", "") : ""),
-      queryParams
-    );
+    // Date Filtering
+    if (startDate) {
+      whereClause.push(`p.created_at >= $${queryParams.length + 1}`);
+      queryParams.push(startDate);
+    }
+    if (endDate) {
+      whereClause.push(`p.created_at <= $${queryParams.length + 1}`);
+      queryParams.push(endDate);
+    }
+
+    const whereString =
+      whereClause.length > 0 ? " WHERE " + whereClause.join(" AND ") : "";
+
+    // Count
+    const totalResult = await pool.query(countQuery + whereString, queryParams);
     const totalCount = parseInt(totalResult.rows[0].count);
 
-    // Add pagination parameters
+    // Results
     const paginationParams = [...queryParams, limit, offset];
     const result = await pool.query(
       selectQuery +
-        whereClause +
+        whereString +
         ` ORDER BY p.created_at DESC LIMIT $${queryParams.length + 1} OFFSET $${
           queryParams.length + 2
         }`,
@@ -57,6 +86,7 @@ router.get("/", async (req, res) => {
       currentPage: page,
     });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -65,10 +95,15 @@ router.get("/", async (req, res) => {
 router.post("/", auth, checkPermission("Products"), async (req, res) => {
   const { name, sku, category, price, description, status, image_url } =
     req.body;
+  const tenantId = req.user.role === "tenant" ? req.user.id : null; // Super admin items have null tenant_id or their own? Let's say null or their own.
+  // Actually allowing super_admin to create system products (null tenant_id) or assigned to them.
+  // Requirement says "Super admin have all access".
+  const ownerId = req.user.role === "super_admin" ? null : req.user.id;
+
   try {
     const result = await pool.query(
-      "INSERT INTO products (name, sku, category, price, description, status, image_url) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *",
-      [name, sku, category, price, description, status, image_url]
+      "INSERT INTO products (name, sku, category, price, description, status, image_url, tenant_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *",
+      [name, sku, category, price, description, status, image_url, ownerId]
     );
     // Also create an inventory entry for the new product
     await pool.query(
@@ -86,7 +121,25 @@ router.put("/:id", auth, checkPermission("Products"), async (req, res) => {
   const { id } = req.params;
   const { name, sku, category, price, description, status, image_url } =
     req.body;
+
   try {
+    // Check ownership if tenant
+    if (req.user.role === "tenant") {
+      const check = await pool.query(
+        "SELECT tenant_id FROM products WHERE id = $1",
+        [id]
+      );
+      if (check.rows.length === 0)
+        return res.status(404).json({ error: "Product not found" });
+      if (check.rows[0].tenant_id !== req.user.id) {
+        return res
+          .status(403)
+          .json({
+            error: "Access denied. You can only update your own products.",
+          });
+      }
+    }
+
     const result = await pool.query(
       "UPDATE products SET name = $1, sku = $2, category = $3, price = $4, description = $5, status = $6, image_url = $7 WHERE id = $8 RETURNING *",
       [name, sku, category, price, description, status, image_url, id]
@@ -98,28 +151,55 @@ router.put("/:id", auth, checkPermission("Products"), async (req, res) => {
 });
 
 // Get product stats
-router.get("/stats", async (req, res) => {
+router.get("/stats", auth, async (req, res) => {
   try {
-    // Low stock count (quantity <= low_stock_threshold)
-    const lowStockResult = await pool.query(
-      "SELECT COUNT(*) FROM inventory WHERE quantity > 0 AND quantity <= low_stock_threshold"
-    );
+    let tenantFilter = "";
+    let params = [];
 
-    // Out of stock count (quantity = 0)
-    const outOfStockResult = await pool.query(
-      "SELECT COUNT(*) FROM inventory WHERE quantity = 0"
-    );
+    if (req.user.role === "tenant") {
+      tenantFilter = " AND p.tenant_id = $1";
+      params = [req.user.id];
+    }
+
+    // Join with products table to filter by tenant
+    const lowStockQuery = `
+      SELECT COUNT(*) FROM inventory i 
+      JOIN products p ON i.product_id = p.id
+      WHERE i.quantity > 0 AND i.quantity <= i.low_stock_threshold
+      ${tenantFilter}
+    `;
+
+    const outOfStockQuery = `
+      SELECT COUNT(*) FROM inventory i
+      JOIN products p ON i.product_id = p.id
+      WHERE i.quantity = 0
+      ${tenantFilter}
+    `;
+
+    const lowStockResult = await pool.query(lowStockQuery, params);
+    const outOfStockResult = await pool.query(outOfStockQuery, params);
 
     // Today's sales count
+    // Need to join sales -> products to filter by tenant
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const endOfDay = new Date();
     endOfDay.setHours(23, 59, 59, 999);
 
-    const todaysSalesResult = await pool.query(
-      "SELECT COUNT(*) FROM sales WHERE sale_date >= $1 AND sale_date <= $2",
-      [today.toISOString(), endOfDay.toISOString()]
-    );
+    let salesQuery = `
+        SELECT COUNT(*) FROM sales s
+        JOIN products p ON s.product_id = p.id
+        WHERE s.sale_date >= $${params.length + 1} AND s.sale_date <= $${
+      params.length + 2
+    }
+        ${tenantFilter}
+    `;
+
+    const todaysSalesResult = await pool.query(salesQuery, [
+      ...params,
+      today.toISOString(),
+      endOfDay.toISOString(),
+    ]);
 
     res.json({
       lowStockCount: parseInt(lowStockResult.rows[0].count),
@@ -135,6 +215,23 @@ router.get("/stats", async (req, res) => {
 router.delete("/:id", auth, checkPermission("Products"), async (req, res) => {
   const { id } = req.params;
   try {
+    // Check ownership if tenant
+    if (req.user.role === "tenant") {
+      const check = await pool.query(
+        "SELECT tenant_id FROM products WHERE id = $1",
+        [id]
+      );
+      if (check.rows.length === 0)
+        return res.status(404).json({ error: "Product not found" });
+      if (check.rows[0].tenant_id !== req.user.id) {
+        return res
+          .status(403)
+          .json({
+            error: "Access denied. You can only delete your own products.",
+          });
+      }
+    }
+
     await pool.query("DELETE FROM products WHERE id = $1", [id]);
     res.json({ message: "Product deleted successfully" });
   } catch (err) {

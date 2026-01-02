@@ -9,15 +9,20 @@ import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Users from "./pages/Users";
 import Products from "./pages/Products";
+import ProductEditor from "./pages/ProductEditor";
 import Inventory from "./pages/Inventory";
 import Sales from "./pages/Sales";
 import Login from "./pages/Login";
+import RegisterTenant from "./pages/RegisterTenant";
 import Settings from "./pages/Settings";
 import Cart from "./pages/Cart";
 import MyOrders from "./pages/MyOrders";
 import AllOrders from "./pages/AllOrders";
 import OrderDetails from "./pages/OrderDetails";
+
 import PaymentSuccess from "./pages/PaymentSuccess";
+import Notifications from "./pages/Notifications";
+import NotificationDetails from "./pages/NotificationDetails";
 import { LoadingProvider } from "./context/LoadingContext";
 import { CartProvider } from "./context/CartContext";
 import { ThemeProvider, useTheme } from "./context/ThemeContext";
@@ -55,6 +60,7 @@ function App() {
           <Router>
             <Routes>
               <Route path="/login" element={<Login />} />
+              <Route path="/register-tenant" element={<RegisterTenant />} />
 
               <Route
                 path="/"
@@ -74,10 +80,42 @@ function App() {
                   }
                 />
                 <Route
+                  path="notifications"
+                  element={
+                    <RoleRoute moduleName="Notifications">
+                      <Notifications />
+                    </RoleRoute>
+                  }
+                />
+                <Route
+                  path="notifications/:id"
+                  element={
+                    <RoleRoute moduleName="Notifications">
+                      <NotificationDetails />
+                    </RoleRoute>
+                  }
+                />
+                <Route
                   path="products"
                   element={
                     <RoleRoute moduleName="Products">
                       <Products />
+                    </RoleRoute>
+                  }
+                />
+                <Route
+                  path="products/new"
+                  element={
+                    <RoleRoute moduleName="Products">
+                      <ProductEditor />
+                    </RoleRoute>
+                  }
+                />
+                <Route
+                  path="products/edit/:id"
+                  element={
+                    <RoleRoute moduleName="Products">
+                      <ProductEditor />
                     </RoleRoute>
                   }
                 />

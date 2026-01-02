@@ -89,7 +89,34 @@ Create / Update / Delete:
 Check and implement things to current front end and backend side
 ------------------------------------------------
 prompt 15
+I want to implement this new task
 
+Create a new user type: “Tenant”.
+Tenants can register through the registration form. The Admin will review and approve tenant accounts. Once a tenant account is approved, then tenant can log into the Admin Panel and manage their own products, sales, inventory, etc.
+
+So create a registration form for tenant user which match the existing UI.
+- Tenent form should have all this fields
+ - Name, email, contact number, username, password,
+ - Implement all validation with proper message showing
+ - After successfully create the tenant customer accoutn show the success message diplaay
+
+In Admin Panel
+-  Create the notification listing page 
+-  Admin should get the notifiction on tenent user create
+-  create the notification details page, allow super admin/admin to accept/reject the tenant-
+
+In back end side
+- Create the notification table and APIs
+- Create neccessary tables for above requirements.
+------------------------------------------------
+prompt 15
+I want to implelement the logic for the tenant user.
+
+- Tenant user can create own product, update product and delete product.
+- Tenant user have not access to other tenant user or super admin product , update, delete and other option.
+- There end user can view all Tenant user and super admin products. 
+- And If user place the order for particular tenant user then that particular tenant user get the order details of that respective tenant product.
+- Super admin have all access of all type of tenant products and also order detaisl of tenant customer product details.
 
 
 

@@ -4,7 +4,7 @@ import toast from "react-hot-toast";
 import { useLoading } from "../context/LoadingContext";
 import API_URL from "../config";
 import { useTheme } from "../context/ThemeContext";
-import { Sun, Moon, TrendingUp, ShieldCheck } from "lucide-react";
+import { Sun, Moon, TrendingUp, ShieldCheck, Eye, EyeOff } from "lucide-react";
 import { fetchRolePermissions, setRolePermissions } from "../utils/permissions";
 
 const Login = () => {
@@ -13,6 +13,7 @@ const Login = () => {
   const { theme, toggleTheme } = useTheme();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -113,13 +114,26 @@ const Login = () => {
               <label className="block text-[10px] font-black italic uppercase tracking-widest text-gray-500 dark:text-gray-400 px-1">
                 Access Cipher
               </label>
-              <input
-                type="password"
-                className="w-full px-5 py-4 bg-gray-50 dark:bg-neutral-900 border border-transparent dark:border-neutral-800 rounded-2xl text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all font-bold placeholder-gray-400 dark:placeholder-neutral-700"
-                placeholder="********"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  className="w-full px-5 py-4 bg-gray-50 dark:bg-neutral-900 border border-transparent dark:border-neutral-800 rounded-2xl text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all font-bold placeholder-gray-400 dark:placeholder-neutral-700 pr-12"
+                  placeholder="********"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+                >
+                  {showPassword ? (
+                    <EyeOff className="w-5 h-5" />
+                  ) : (
+                    <Eye className="w-5 h-5" />
+                  )}
+                </button>
+              </div>
             </div>
 
             {error && (
@@ -145,6 +159,15 @@ const Login = () => {
               E2E Cryptographic Protection Enabled
             </span>
           </p>
+          <div className="text-center mt-4">
+            <span className="text-xs text-gray-500">New around here? </span>
+            <a
+              href="/register-tenant"
+              className="text-xs font-bold text-primary-600 hover:text-primary-700 uppercase tracking-widest transition-colors"
+            >
+              Join as Tenant
+            </a>
+          </div>
         </div>
       </div>
     </div>

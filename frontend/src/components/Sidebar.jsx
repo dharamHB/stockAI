@@ -16,7 +16,9 @@ import {
   Sun,
   Moon,
   Menu,
+  Bell,
 } from "lucide-react";
+
 import clsx from "clsx";
 import { hasPermission } from "../utils/permissions";
 import { useCart } from "../context/CartContext";
@@ -38,9 +40,20 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }) => {
       name: "Dashboard",
       path: "/",
       icon: LayoutDashboard,
-      roles: ["admin", "manager", "user"],
+      roles: ["super_admin", "admin", "manager", "user", "tenant"],
     },
-    { name: "Users", path: "/users", icon: Users, roles: ["admin"] },
+    {
+      name: "Users",
+      path: "/users",
+      icon: Users,
+      roles: ["super_admin", "admin"],
+    },
+    {
+      name: "Notifications",
+      path: "/notifications",
+      icon: Bell,
+      roles: ["super_admin", "admin"],
+    },
     {
       name: "Products",
       path: "/products",

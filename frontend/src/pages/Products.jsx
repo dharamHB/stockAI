@@ -396,9 +396,11 @@ const Products = () => {
               </button>
             </div>
           )}
-          {(userRole === "admin" || userRole === "super_admin") && (
+          {(userRole === "admin" ||
+            userRole === "super_admin" ||
+            userRole === "tenant") && (
             <button
-              onClick={() => setIsModalOpen(true)}
+              onClick={() => navigate("/products/new")}
               className="bg-primary-600 text-white px-6 py-2.5 rounded-xl flex items-center gap-3 hover:bg-primary-700 transition-all shadow-lg shadow-primary-500/20 font-black uppercase tracking-widest text-[10px]"
             >
               <Plus className="w-4 h-4" />
@@ -581,7 +583,7 @@ const Products = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {filteredProducts.map((product) => {
                 const availableStock = product.stock_quantity || 0;
-                    return (
+                return (
                   <div
                     key={product.id}
                     className="group bg-white dark:bg-[#1f1f1f] rounded-2xl border border-gray-100 dark:border-neutral-800 shadow-sm hover:shadow-xl dark:hover:shadow-primary-900/10 transition-all duration-500 overflow-hidden flex flex-col"
@@ -605,10 +607,14 @@ const Products = () => {
                           </span>
                         )}
                       </div>
-                      {(userRole === "admin" || userRole === "super_admin") && (
+                      {(userRole === "admin" ||
+                        userRole === "super_admin" ||
+                        userRole === "tenant") && (
                         <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                           <button
-                            onClick={() => handleEdit(product)}
+                            onClick={() =>
+                              navigate(`/products/edit/${product.id}`)
+                            }
                             className="p-2.5 bg-white dark:bg-neutral-900 border border-gray-100 dark:border-neutral-800 rounded-xl text-gray-500 hover:text-primary-600 dark:hover:text-primary-400 transition-all shadow-xl hover:scale-105"
                           >
                             <Pencil className="w-4 h-4" />
@@ -696,7 +702,8 @@ const Products = () => {
                 return (
                   <div
                     key={product.id}
-                    className="group bg-white dark:bg-[#1f1f1f] rounded-2xl border border-gray-100 dark:border-neutral-800 shadow-sm hover:shadow-md transition-all duration-300 p-5 flex items-center gap-6" >
+                    className="group bg-white dark:bg-[#1f1f1f] rounded-2xl border border-gray-100 dark:border-neutral-800 shadow-sm hover:shadow-md transition-all duration-300 p-5 flex items-center gap-6"
+                  >
                     <div className="w-20 h-20 rounded-xl overflow-hidden bg-gray-50 dark:bg-neutral-800 flex-shrink-0 border border-gray-100 dark:border-neutral-800">
                       <img
                         src={
@@ -760,10 +767,14 @@ const Products = () => {
                         Acquire
                       </button>
 
-                      {(userRole === "admin" || userRole === "super_admin") && (
+                      {(userRole === "admin" ||
+                        userRole === "super_admin" ||
+                        userRole === "tenant") && (
                         <div className="flex gap-2 border-l border-gray-100 dark:border-neutral-800 pl-4">
                           <button
-                            onClick={() => handleEdit(product)}
+                            onClick={() =>
+                              navigate(`/products/edit/${product.id}`)
+                            }
                             className="p-2.5 text-gray-400 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/10 rounded-xl transition-all"
                           >
                             <Pencil className="w-4 h-4" />

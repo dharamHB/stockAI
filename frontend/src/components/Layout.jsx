@@ -1,14 +1,36 @@
 import React, { useState, useEffect } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, Link, useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import clsx from "clsx";
-import { Menu, Sun, Moon } from "lucide-react";
+import { Menu, Sun, Moon, Bell } from "lucide-react";
 import { useTheme } from "../context/ThemeContext";
+import axios from "axios";
+import API_URL from "../config";
 
 const Layout = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const { theme, toggleTheme } = useTheme();
+  const location = useLocation();
+  const userRole = localStorage.getItem("userRole");
+
+  const fetchUnreadCount = async () => {
+    if (userRole !== "super_admin" && userRole !== "admin") return;
+    try {
+      const response = await axios.get(`${API_URL}/api/notifications`, {
+        headers: { "x-auth-token": localStorage.getItem("token") },
+      });
+      const unread = response.data.filter((n) => !n.is_read).length;
+      setUnreadCount(unread);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchUnreadCount();
+  }, [location.pathname]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -68,6 +90,19 @@ const Layout = () => {
             </h2>
           </div>
           <div className="flex items-center gap-4">
+            {(userRole === "super_admin" || userRole === "admin") && (
+              <Link
+                to="/notifications"
+                className="relative p-2 rounded-xl text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-neutral-800 transition-all active:scale-95 shadow-sm border border-gray-100 dark:border-neutral-800"
+              >
+                <Bell className="w-5 h-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[10px] font-bold text-white flex items-center justify-center shadow-md animate-pulse">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                )}
+              </Link>
+            )}
             <div className="flex items-center gap-3 px-4 py-1.5 bg-gray-50 dark:bg-neutral-900 rounded-full border border-gray-100 dark:border-neutral-800">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
               <span className="text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-500">

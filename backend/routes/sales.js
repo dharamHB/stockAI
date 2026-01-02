@@ -158,19 +158,39 @@ router.get("/", auth, checkPermission("Sales"), async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = parseInt(req.query.limit) || 10;
   const offset = (page - 1) * limit;
+  const userRole = req.user.role;
+  const userId = req.user.id;
 
   try {
-    const totalCountResult = await pool.query("SELECT COUNT(*) FROM sales");
+    let whereClause = "";
+    let params = [];
+
+    // Filter for Tenant
+    if (userRole === "tenant") {
+      whereClause = " WHERE p.tenant_id = $1";
+      params = [userId];
+    }
+
+    // Count
+    const countQuery = `
+      SELECT COUNT(*) FROM sales s
+      JOIN products p ON s.product_id = p.id
+      ${whereClause}
+    `;
+    const totalCountResult = await pool.query(countQuery, params);
     const totalCount = parseInt(totalCountResult.rows[0].count);
 
+    // Query
     const query = `
       SELECT s.*, p.name as product_name, p.sku 
       FROM sales s 
       JOIN products p ON s.product_id = p.id 
+      ${whereClause}
       ORDER BY s.sale_date DESC
-      LIMIT $1 OFFSET $2
+      LIMIT $${params.length + 1} OFFSET $${params.length + 2}
     `;
-    const result = await pool.query(query, [limit, offset]);
+
+    const result = await pool.query(query, [...params, limit, offset]);
 
     res.json({
       sales: result.rows,
@@ -227,7 +247,8 @@ router.get(
 router.get(
   "/orders/:id",
   auth,
-  checkPermission("My Orders"),
+  // Removed strict permission check here to allow custom logic inside or check role
+  // checkPermission("My Orders") // 'All Orders' module usually for admins, 'My Orders' for users
   async (req, res) => {
     const { id } = req.params;
     const userId = req.user.id;
@@ -238,10 +259,13 @@ router.get(
       let orderQuery = "SELECT * FROM orders WHERE id = $1";
       const params = [id];
 
-      if (userRole !== "admin" && userRole !== "super_admin") {
+      // If "user" role (customer), ensure it's their order
+      if (userRole === "user") {
         orderQuery += " AND user_id = $2";
         params.push(userId);
       }
+      // If "tenant", we don't filter order ownership by user_id, but by product ownership later.
+      // Super admin sees all.
 
       const orderResult = await pool.query(orderQuery, params);
 
@@ -252,13 +276,32 @@ router.get(
       const order = orderResult.rows[0];
 
       // 2. Get the items (sales) for this order
-      const itemsResult = await pool.query(
-        `SELECT s.*, p.name as product_name, p.sku, p.image_url, p.description
-       FROM sales s
-       JOIN products p ON s.product_id = p.id
-       WHERE s.order_id = $1`,
-        [id]
-      );
+      // If Tenant, ONLY get items belonging to them
+      let productFilter = "";
+      let itemParams = [id];
+
+      if (userRole === "tenant") {
+        productFilter = " AND p.tenant_id = $2";
+        itemParams.push(userId);
+      }
+
+      const itemsQuery = `
+        SELECT s.*, p.name as product_name, p.sku, p.image_url, p.description
+        FROM sales s
+        JOIN products p ON s.product_id = p.id
+        WHERE s.order_id = $1 ${productFilter}
+      `;
+
+      const itemsResult = await pool.query(itemsQuery, itemParams);
+
+      // If Tenant and no items found, it means this order doesn't involve them
+      if (userRole === "tenant" && itemsResult.rows.length === 0) {
+        return res
+          .status(403)
+          .json({
+            error: "Access denied. Order does not contain your products.",
+          });
+      }
 
       res.json({
         order,
@@ -450,7 +493,7 @@ router.get("/export/pdf", auth, checkPermission("Sales"), async (req, res) => {
   }
 });
 
-// Get all orders (Admin/Manager)
+// Get all orders (Admin/Manager/Tenant)
 router.get(
   "/all-orders",
   auth,
@@ -467,6 +510,8 @@ router.get(
       sortOrder = "DESC",
     } = req.query;
     const offset = (page - 1) * limit;
+    const userRole = req.user.role;
+    const userId = req.user.id;
 
     try {
       let whereClause = "WHERE 1=1";
@@ -497,11 +542,26 @@ router.get(
         paramIndex++;
       }
 
+      // Tenant Filter
+      // We need to filter orders that have AT LEAST one sale item belonging to the tenant's product
+      let joinClause = "";
+      if (userRole === "tenant") {
+        // EXISTS clause is efficient here
+        whereClause += ` AND EXISTS (
+          SELECT 1 FROM sales s 
+          JOIN products p ON s.product_id = p.id 
+          WHERE s.order_id = o.id AND p.tenant_id = $${paramIndex}
+        )`;
+        params.push(userId);
+        paramIndex++;
+      }
+
       // Count
       const countQuery = `
       SELECT COUNT(*) 
       FROM orders o 
       LEFT JOIN users u ON o.user_id = u.id 
+      ${joinClause}
       ${whereClause}
     `;
       const totalCountResult = await pool.query(countQuery, params);
@@ -517,6 +577,7 @@ router.get(
              (SELECT COUNT(*) FROM sales s WHERE s.order_id = o.id) as total_items
       FROM orders o
       LEFT JOIN users u ON o.user_id = u.id
+      ${joinClause}
       ${whereClause}
       ORDER BY o.${sortCol} ${sortDir}
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}

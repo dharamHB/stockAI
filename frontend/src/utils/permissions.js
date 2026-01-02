@@ -58,6 +58,7 @@ export const getRolePermissions = () => {
 
 export const hasPermission = (userRole, moduleName) => {
   if (userRole === "super_admin") return true;
+  if (userRole === "admin" && moduleName === "Notifications") return true;
   const permissions = getRolePermissions();
   const roleModules = permissions[userRole] || [];
   return roleModules.includes(moduleName);
